@@ -1,0 +1,436 @@
+<html><head><base href="https://voice-timer.app/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice-Controlled Multi-Timer</title>
+<style>
+body {
+  background-color: #000000; /* Coal black */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  min-height: 100vh;
+}
+.container {
+  background-color: #333333; /* Dark gray */
+  background-image: 
+    linear-gradient(45deg, #2b2b2b 25%, transparent 25%), 
+    linear-gradient(-45deg, #2b2b2b 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #2b2b2b 75%), 
+    linear-gradient(-45deg, transparent 75%, #2b2b2b 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  flex: 1;
+  margin: 0 20px;
+  text-align: center;
+  padding: 40px; /* Increased from 30px */
+  border-radius: 20px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.2);
+  max-width: 800px; /* Increased from 600px */
+}
+h1 {
+  color: #ffd700; /* Golden color */
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+#startButton {
+  font-size: 24px;
+  padding: 15px 30px;
+  background-color: #00b894;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin: 10px;
+}
+#startButton:hover {
+  background-color: #00a885;
+}
+#status { font-size: 18px; margin-bottom: 20px; color: #dfe6e9; }
+#timerList { text-align: left; margin-top: 20px; }
+.timer-item {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 2px solid #00b894;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+.timer-item.completed {
+  background-color: rgba(0, 184, 148, 0.2);
+  border-color: #00a885;
+}
+.timer-item .time { font-weight: bold; color: #ff7675; }
+.timer-item .command { color: #74b9ff; }
+.slider-container {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slider-container label {
+  color: #dfe6e9;
+  margin-right: 10px;
+}
+#eqSlider {
+  width: 200px;
+}
+.donation-info {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  text-align: right;
+  background-color: rgba(255,255,255,0.1);
+  padding: 10px;
+  border-radius: 5px;
+  max-width: 300px;
+  font-size: 14px;
+  color: #dfe6e9;
+}
+.clock {
+  width: 200px;
+  height: 200px;
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background-color: transparent;
+  border: none;
+}
+.hand {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform-origin: 50% 100%;
+  background-color: #dfe6e9;
+}
+.hour {
+  width: 4px;
+  height: 60px;
+  background-color: #ffd700; /* Golden color */
+}
+.minute {
+  width: 3px;
+  height: 80px;
+  background-color: #ffd700; /* Golden color */
+}
+.second {
+  width: 2px;
+  height: 90px;
+  background-color: #ff7675;
+}
+.center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #dfe6e9;
+  transform: translate(-50%, -50%);
+}
+</style>
+</head>
+<body>
+  <div class="honeycomb"></div>
+  <div class="clock">
+    <div class="hand hour"></div>
+    <div class="hand minute"></div>
+    <div class="hand second"></div>
+    <div class="center-dot"></div>
+  </div>
+  <div class="container">
+    <h1 id="mainTitle">Voice-Controlled Multi-Timer</h1>
+    <div id="status">Press the button or "Space" key to start</div>
+    <button id="startButton">Start</button>
+    <div class="slider-container">
+      <label for="eqSlider">Bass</label>
+      <input type="range" id="eqSlider" min="-10" max="10" value="0">
+      <label for="eqSlider">Treble</label>
+    </div>
+    <div id="timerList"></div>
+  </div>
+  <div class="donation-info">
+    <p>Your support, even a few cents, helps keep this app free. Thank you for being awesome! Peace and goodwill to all.</p>
+    <p style="font-size: 12px; word-break: break-all;">ETH address: 0x896d8d26417DfeE7a49B75aa68ac40A23E7F5F2c</p>
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=ethereum:0x896d8d26417DfeE7a49B75aa68ac40A23E7F5F2c" alt="QR Code">
+    <button onclick="donateETH()">Donate with MetaMask</button>
+    <p style="font-size: 12px;">No MetaMask? Use the QR code or copy the address above to donate from any ETH wallet.</p>
+  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/RecordRTC/5.6.2/RecordRTC.min.js"></script>
+<script>
+const startButton = document.getElementById('startButton');
+const statusDisplay = document.getElementById('status');
+const timerList = document.getElementById('timerList');
+const eqSlider = document.getElementById('eqSlider');
+
+let isRecording = false;
+let recorder;
+let stream;
+let timers = [];
+let audioContext;
+let gainNode;
+let biquadFilter;
+
+startButton.addEventListener('click', toggleRecording);
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    toggleRecording();
+  }
+});
+
+eqSlider.addEventListener('input', updateEQ);
+
+function updateEQ() {
+  if (biquadFilter) {
+    const value = parseFloat(eqSlider.value);
+    biquadFilter.type = value < 0 ? "lowshelf" : "highshelf";
+    biquadFilter.frequency.value = value < 0 ? 200 : 2000;
+    biquadFilter.gain.value = Math.abs(value) * 8; // Increased gain for more pronounced effect
+  }
+}
+
+function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    startRecording();
+  }
+}
+
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(audioStream => {
+      stream = audioStream;
+      recorder = new RecordRTC(stream, {
+        type: 'audio',
+        mimeType: 'audio/webm',
+        sampleRate: 44100,
+        desiredSampRate: 16000,
+        recorderType: RecordRTC.StereoAudioRecorder,
+        numberOfAudioChannels: 1
+      });
+      
+      recorder.startRecording();
+      isRecording = true;
+      startButton.textContent = 'Stop';
+      statusDisplay.textContent = 'Speak the time for the timer...';
+    })
+    .catch(err => {
+      console.warn('Unable to access microphone:', err);
+      statusDisplay.textContent = 'Unable to access microphone';
+    });
+}
+
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+recognition.continuous = false;
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+recognition.lang = 'ru-RU, en-US';
+
+recognition.onresult = (event) => {
+  const speechResult = event.results[0][0].transcript.toLowerCase();
+  console.log('Recognized speech:', speechResult);
+  parseVoiceCommand(speechResult, recorder.getBlob());
+};
+
+recognition.onerror = (event) => {
+  console.warn('Speech recognition issue:', event.error);
+  statusDisplay.textContent = 'Speech recognition issue occurred';
+};
+
+function stopRecording() {
+  if (!isRecording) return;
+  
+  recorder.stopRecording(() => {
+    isRecording = false;
+    startButton.textContent = 'Start';
+    statusDisplay.textContent = 'Processing voice input...';
+    
+    stream.getTracks().forEach(track => track.stop());
+    recognition.start();
+  });
+}
+
+function parseVoiceCommand(command, audioBlob) {
+  const numbers = command.match(/\d+/g);
+  if (numbers && numbers.length > 0) {
+    if (numbers.length >= 2) {
+      const hours = parseInt(numbers[0]);
+      const minutes = parseInt(numbers[1]);
+      addAlarmTimer(hours, minutes, command, audioBlob);
+    } else {
+      const minutes = parseInt(numbers[0]);
+      addCountdownTimer(minutes * 60, command, audioBlob);
+    }
+  } else {
+    statusDisplay.textContent = 'Could not recognize the time';
+  }
+}
+
+function addCountdownTimer(seconds, command, audioBlob) {
+  const timer = {
+    id: Date.now(),
+    type: 'countdown',
+    endTime: Date.now() + seconds * 1000,
+    command: command,
+    audioBlob: audioBlob,
+    completed: false,
+    reminded: false
+  };
+  timers.push(timer);
+  updateTimerList();
+  startTimer(timer);
+}
+
+function addAlarmTimer(hours, minutes, command, audioBlob) {
+  const now = new Date();
+  const alarmTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+  
+  if (alarmTime <= now) {
+    alarmTime.setDate(alarmTime.getDate() + 1);
+  }
+  
+  const timer = {
+    id: Date.now(),
+    type: 'alarm',
+    endTime: alarmTime.getTime(),
+    command: command,
+    audioBlob: audioBlob,
+    completed: false,
+    reminded: false
+  };
+  timers.push(timer);
+  updateTimerList();
+  startTimer(timer);
+}
+
+function startTimer(timer) {
+  const updateInterval = setInterval(() => {
+    const now = Date.now();
+    if (now >= timer.endTime) {
+      clearInterval(updateInterval);
+      timer.completed = true;
+      playAudio(timer.audioBlob);
+      updateTimerList();
+      
+      setTimeout(() => {
+        if (!timer.reminded && timers.some(t => t.id === timer.id)) {
+          playReminderBeep();
+          timer.reminded = true;
+          updateTimerList();
+        }
+      }, 60000);
+    } else {
+      updateTimerList();
+    }
+  }, 1000);
+}
+
+function updateTimerList() {
+  requestAnimationFrame(() => {
+    timerList.innerHTML = '';
+    timers.forEach(timer => {
+      const timerElement = document.createElement('div');
+      timerElement.className = `timer-item ${timer.completed ? 'completed' : ''}`;
+      
+      const remainingTime = Math.max(0, Math.floor((timer.endTime - Date.now()) / 1000));
+      const hours = Math.floor(remainingTime / 3600);
+      const minutes = Math.floor((remainingTime % 3600) / 60);
+      const seconds = remainingTime % 60;
+      
+      timerElement.innerHTML = `
+        <span class="command">${timer.command}</span>
+        <span class="time">${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</span>
+      `;
+      
+      timerElement.addEventListener('click', (e) => {
+        if (e.detail === 2) { // Double click
+          removeTimer(timer.id);
+        }
+      });
+      
+      timerList.appendChild(timerElement);
+    });
+  });
+}
+
+function removeTimer(timerId) {
+  timers = timers.filter(timer => timer.id !== timerId);
+  updateTimerList();
+}
+
+function playAudio(audioBlob) {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    gainNode = audioContext.createGain();
+    biquadFilter = audioContext.createBiquadFilter();
+    gainNode.connect(biquadFilter);
+    biquadFilter.connect(audioContext.destination);
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    audioContext.decodeAudioData(e.target.result, function(buffer) {
+      const source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gainNode);
+      updateEQ();
+      source.start(0);
+    });
+  };
+  reader.readAsArrayBuffer(audioBlob);
+}
+
+function playReminderBeep() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+  
+  gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+  gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.01);
+  gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+  
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.5);
+}
+
+function updateClock() {
+  const now = new Date();
+  const hours = now.getHours() % 12;
+  const minutes = now.getMinutes();
+  const seconds = now.getSeconds();
+
+  document.querySelector('.hour').style.transform = `rotate(${(hours + minutes / 60) * 30}deg)`;
+  document.querySelector('.minute').style.transform = `rotate(${(minutes + seconds / 60) * 6}deg)`;
+  document.querySelector('.second').style.transform = `rotate(${seconds * 6}deg)`;
+}
+
+const updateInterval = setInterval(() => {
+  updateClock();
+  updateTimerList();
+}, 1000);
+
+updateClock(); // Initial call to set the clock immediately
+
+function donateETH() {
+  const address = "0x896d8d26417DfeE7a49B75aa68ac40A23E7F5F2c";
+  const url = `https://metamask.app.link/send/eth?address=${address}`;
+  window.open(url, '_blank');
+}
+</script>
+</body>
+</html>

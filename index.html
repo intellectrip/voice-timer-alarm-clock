@@ -218,7 +218,7 @@ function startRecording() {
       recorder.startRecording();
       isRecording = true;
       startButton.textContent = 'Stop';
-      statusDisplay.textContent = 'Speak the time for the timer...';
+      statusDisplay.textContent = 'say note...';
     })
     .catch(err => {
       console.warn('Unable to access microphone:', err);
@@ -249,7 +249,7 @@ function stopRecording() {
   recorder.stopRecording(() => {
     isRecording = false;
     startButton.textContent = 'Start';
-    statusDisplay.textContent = 'Processing voice input...';
+    statusDisplay.textContent = 'Speak the time...';
     
     stream.getTracks().forEach(track => track.stop());
     recognition.start();

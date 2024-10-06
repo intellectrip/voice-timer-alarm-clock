@@ -3,6 +3,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Voice-Controlled Multi-Timer</title>
 <style>
+:root {
+  --time-color: rgba(255, 118, 117, 0.5);
+}
 body {
   background-color: #000000; /* Coal black */
   display: flex;
@@ -10,6 +13,24 @@ body {
   align-items: center;
   padding: 20px;
   min-height: 100vh;
+}
+.time-color-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0; /* Start with no height */
+  z-index: -1;
+  opacity: 0.3;
+  transition: background-color 1s linear, height 1s linear;
+  overflow: hidden;
+}
+.star {
+  position: absolute;
+  background-color: #ffffff;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
 }
 .container {
   background-color: #333333; /* Dark gray */
@@ -24,9 +45,12 @@ body {
   margin: 0 20px;
   text-align: center;
   padding: 40px; /* Increased from 30px */
-  border-radius: 20px;
+  border-radius: 15px; /* Adjusted for rounded corners */
   box-shadow: 0 0 20px rgba(0,0,0,0.2);
   max-width: 800px; /* Increased from 600px */
+  margin-top: 20px; /* Reduced from 240px to move it higher */
+  position: relative;
+  z-index: 1; /* Ensure it's above the color strip */
 }
 h1 {
   color: #ffd700; /* Golden color */
@@ -53,7 +77,7 @@ h1 {
   border: 2px solid #00b894;
   padding: 15px;
   margin-bottom: 15px;
-  border-radius: 15px;
+  border-radius: 15px; /* Adjusted for rounded corners */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -86,19 +110,102 @@ h1 {
   text-align: right;
   background-color: rgba(255,255,255,0.1);
   padding: 10px;
-  border-radius: 5px;
+  border-radius: 15px; /* Adjusted for rounded corners */
   max-width: 300px;
   font-size: 14px;
   color: #dfe6e9;
 }
+.clock-container {
+  position: absolute;
+  top: 20px;
+  right: 20px; /* Keep the analog clock on the right side */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* Changed from flex-start */
+  z-index: 2;
+}
+.scales {
+  position: absolute;
+  top: 20px;
+  left: 20px; /* Move scales to the left side */
+  display: flex;
+  height: calc(100vh - 40px); /* Full viewport height minus top/bottom margin */
+  z-index: 2;
+}
+.scale {
+  width: 30px;
+  height: 100%; /* Changed to 100% */
+  background-color: #222;
+  margin-right: 20px; /* Increased from 10px to separate scales further */
+  position: relative;
+  border-radius: 15px; /* Adjusted for rounded corners */
+}
+.scale::after {
+  content: '';
+  position: absolute;
+  top: 0; /* Change from bottom to top */
+  left: 0;
+  width: 100%;
+  background-color: var(--time-color);
+  transition: height 1s linear, background-color 1s linear;
+  border-radius: 0 0 15px 15px;
+}
+.scale-mark {
+  position: absolute;
+  top: 0; /* Change from bottom to top */
+  left: 0;
+  height: 1px;
+  background-color: #00b894; /* Same color as the Start button */
+  width: 10px; /* Make all marks visible */
+  border-radius: 0 5px 5px 0;
+}
+.scale-mark.numbered {
+  background-color: #333; /* Slightly lighter for numbered marks */
+  width: 15px; /* Make numbered marks slightly longer */
+}
+.seconds-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: rgba(116, 185, 255, 0.5); /* Light blue, semi-transparent */
+  transition: height 1s linear;
+  border-radius: 0 0 15px 15px;
+}
+.hours::after {
+  height: calc(var(--current-hour) / 24 * 100%);
+}
+.minutes::after {
+  height: calc(var(--current-minute) / 60 * 100%);
+}
+.scale-text {
+  position: absolute;
+  left: 20px;
+  transform: translateY(-50%);
+  color: #00b894; /* Same color as the Start button */
+}
+.instructions {
+  width: 200px;
+  margin-left: 20px;
+  color: #dfe6e9;
+  font-size: 14px;
+}
+.instructions h3 {
+  color: #ffd700;
+  margin-bottom: 10px;
+}
+.instructions ul {
+  padding-left: 20px;
+  margin: 0;
+}
+.instructions li {
+  margin-bottom: 10px;
+}
 .clock {
   width: 200px;
   height: 200px;
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  background-color: transparent;
-  border: none;
+  position: relative; /* Changed from absolute */
+  margin-bottom: 20px; /* Add some space between clock and scales */
 }
 .hand {
   position: absolute;
@@ -109,17 +216,17 @@ h1 {
 }
 .hour {
   width: 4px;
-  height: 60px;
+  height: 80px; /* Increased height */
   background-color: #ffd700; /* Golden color */
 }
 .minute {
   width: 3px;
-  height: 80px;
+  height: 100px; /* Increased height */
   background-color: #ffd700; /* Golden color */
 }
 .second {
   width: 2px;
-  height: 90px;
+  height: 110px; /* Increased height */
   background-color: #ff7675;
 }
 .center-dot {
@@ -135,15 +242,44 @@ h1 {
 </style>
 </head>
 <body>
+  <div class="time-color-strip"></div>
   <div class="honeycomb"></div>
-  <div class="clock">
-    <div class="hand hour"></div>
-    <div class="hand minute"></div>
-    <div class="hand second"></div>
-    <div class="center-dot"></div>
+  <div class="clock-container">
+    <div class="clock">
+      <div class="hand hour"></div>
+      <div class="hand minute"></div>
+      <div class="hand second"></div>
+      <div class="center-dot"></div>
+    </div>
+  </div>
+  <div class="scales">
+    <div class="scale hours" id="hourScale"></div>
+    <div class="scale minutes" id="minuteScale">
+      <div class="seconds-fill"></div>
+    </div>
+    <div class="instructions">
+      <h3>Instructions</h3>
+      <ul>
+        <li>Press "Start" or Space key to begin voice input.</li>
+        <li>Say any word or sound.</li>
+        <li>Press "Start" or the space bar again.</li>
+        <li>Speak the timer duration (e.g., "5 minutes").</li>
+        <li>For alarms, say the time (e.g., "3:30").</li>
+        <li>Alternative installation option:</li>
+        <li>Click scales on the left hand side to set timers visually.</li>
+        <li>Double tap for any length of time in minutes.</li>
+        <li>When set for a certain time:</li>
+        <li>A single tap on the watch then a double tap on the minutes.</li>
+        <li>Long click a timer for 2 seconds to remove it.</li>
+        <li>Double-click a completed timer to restart it.</li>
+        <li>Adjust the slider for audio EQ.</li>
+        <li>After a minute, a control beep.</li>
+        <li>Remember that the performance of the timer depends on the stability of your Internet.</li>
+      </ul>
+    </div>
   </div>
   <div class="container">
-    <h1 id="mainTitle">Voice-Controlled Multi-Timer</h1>
+    <h1 id="mainTitle">Snotty Timer with Voice Input</h1>
     <div id="status">Press the button or "Space" key to start</div>
     <button id="startButton">Start</button>
     <div class="slider-container">
@@ -218,7 +354,7 @@ function startRecording() {
       recorder.startRecording();
       isRecording = true;
       startButton.textContent = 'Stop';
-      statusDisplay.textContent = 'say note...';
+      statusDisplay.textContent = 'Make any sound'; // Changed from 'Speak the time for the timer...'
     })
     .catch(err => {
       console.warn('Unable to access microphone:', err);
@@ -233,6 +369,7 @@ recognition.maxAlternatives = 1;
 recognition.lang = 'ru-RU, en-US';
 
 recognition.onresult = (event) => {
+  recognition.resultReceived = true;
   const speechResult = event.results[0][0].transcript.toLowerCase();
   console.log('Recognized speech:', speechResult);
   parseVoiceCommand(speechResult, recorder.getBlob());
@@ -243,16 +380,32 @@ recognition.onerror = (event) => {
   statusDisplay.textContent = 'Speech recognition issue occurred';
 };
 
+recognition.onend = () => {
+  console.log('Speech recognition ended');
+  if (!recognition.resultReceived) {
+    statusDisplay.textContent = 'No speech detected. Please try again.';
+  }
+};
+
 function stopRecording() {
   if (!isRecording) return;
   
   recorder.stopRecording(() => {
     isRecording = false;
     startButton.textContent = 'Start';
-    statusDisplay.textContent = 'Speak the time...';
+    statusDisplay.textContent = 'Speak the time for the timer'; // Changed from 'Processing voice input...'
     
     stream.getTracks().forEach(track => track.stop());
-    recognition.start();
+    
+    setTimeout(() => {
+      recognition.start();
+      
+      setTimeout(() => {
+        if (recognition.state === 'running') {
+          recognition.stop();
+        }
+      }, 4000);
+    }, 500);
   });
 }
 
@@ -276,13 +429,14 @@ function addCountdownTimer(seconds, command, audioBlob) {
   const timer = {
     id: Date.now(),
     type: 'countdown',
+    startTime: Date.now(),
     endTime: Date.now() + seconds * 1000,
     command: command,
     audioBlob: audioBlob,
     completed: false,
     reminded: false
   };
-  timers.push(timer);
+  timers.unshift(timer);
   updateTimerList();
   startTimer(timer);
 }
@@ -298,16 +452,19 @@ function addAlarmTimer(hours, minutes, command, audioBlob) {
   const timer = {
     id: Date.now(),
     type: 'alarm',
+    startTime: now.getTime(),
     endTime: alarmTime.getTime(),
     command: command,
     audioBlob: audioBlob,
     completed: false,
     reminded: false
   };
-  timers.push(timer);
+  timers.unshift(timer);
   updateTimerList();
   startTimer(timer);
 }
+
+const timerIntervals = {};
 
 function startTimer(timer) {
   const updateInterval = setInterval(() => {
@@ -315,7 +472,11 @@ function startTimer(timer) {
     if (now >= timer.endTime) {
       clearInterval(updateInterval);
       timer.completed = true;
-      playAudio(timer.audioBlob);
+      if (timer.audioBlob) {
+        playAudio(timer.audioBlob);
+      } else {
+        playDefaultSound();
+      }
       updateTimerList();
       
       setTimeout(() => {
@@ -329,12 +490,14 @@ function startTimer(timer) {
       updateTimerList();
     }
   }, 1000);
+  
+  timerIntervals[timer.id] = updateInterval;
 }
 
 function updateTimerList() {
   requestAnimationFrame(() => {
     timerList.innerHTML = '';
-    timers.forEach(timer => {
+    timers.sort((a, b) => b.id - a.id).forEach(timer => {
       const timerElement = document.createElement('div');
       timerElement.className = `timer-item ${timer.completed ? 'completed' : ''}`;
       
@@ -348,10 +511,19 @@ function updateTimerList() {
         <span class="time">${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</span>
       `;
       
-      timerElement.addEventListener('click', (e) => {
-        if (e.detail === 2) { // Double click
+      let longPressTimer;
+      timerElement.addEventListener('mousedown', () => {
+        longPressTimer = setTimeout(() => {
           removeTimer(timer.id);
-        }
+        }, 2000); // Changed to 2 seconds
+      });
+      
+      timerElement.addEventListener('mouseup', () => {
+        clearTimeout(longPressTimer);
+      });
+      
+      timerElement.addEventListener('dblclick', () => {
+        restartTimer(timer);
       });
       
       timerList.appendChild(timerElement);
@@ -362,6 +534,35 @@ function updateTimerList() {
 function removeTimer(timerId) {
   timers = timers.filter(timer => timer.id !== timerId);
   updateTimerList();
+  clearInterval(timerIntervals[timerId]);
+  delete timerIntervals[timerId];
+}
+
+function restartTimer(timer) {
+  const duration = timer.endTime - timer.startTime;
+  timer.startTime = Date.now();
+  timer.endTime = timer.startTime + duration;
+  timer.completed = false;
+  timer.reminded = false;
+  startTimer(timer);
+}
+
+function playDefaultSound() {
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(2000, audioContext.currentTime);
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+  gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + 0.01);
+  gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1);
+
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 1);
 }
 
 function playAudio(audioBlob) {
@@ -425,6 +626,152 @@ const updateInterval = setInterval(() => {
 }, 1000);
 
 updateClock(); // Initial call to set the clock immediately
+
+function updateScaleColor() {
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  
+  const timeOfDay = (hour * 60 + minute) / (24 * 60);
+  
+  let hue, saturation, lightness;
+  
+  if (timeOfDay < 0.25) { // Night to sunrise (0:00 - 6:00)
+    hue = 240 + (timeOfDay / 0.25) * 20; // 240 (blue) to 260 (purple)
+    saturation = 100 - (timeOfDay / 0.25) * 40; // 100% to 60%
+    lightness = 20 + (timeOfDay / 0.25) * 30; // 20% to 50%
+  } else if (timeOfDay < 0.5) { // Sunrise to midday (6:00 - 12:00)
+    hue = 40 - ((timeOfDay - 0.25) / 0.25) * 40; // 40 (orange) to 0 (red)
+    saturation = 100;
+    lightness = 50 + ((timeOfDay - 0.25) / 0.25) * 30; // 50% to 80%
+  } else if (timeOfDay < 0.75) { // Midday to sunset (12:00 - 18:00)
+    hue = 200 * ((timeOfDay - 0.5) / 0.25); // 0 (red) to 200 (light blue)
+    saturation = 100 - ((timeOfDay - 0.5) / 0.25) * 60; // 100% to 40%
+    lightness = 80 - ((timeOfDay - 0.5) / 0.25) * 30; // 80% to 50%
+  } else { // Sunset to night (18:00 - 24:00)
+    hue = 200 + ((timeOfDay - 0.75) / 0.25) * 40; // 200 (light blue) to 240 (blue)
+    saturation = 40 + ((timeOfDay - 0.75) / 0.25) * 60; // 40% to 100%
+    lightness = 50 - ((timeOfDay - 0.75) / 0.25) * 30; // 50% to 20%
+  }
+  
+  const color = `hsla(${Math.round(hue)}, ${Math.round(saturation)}%, ${Math.round(lightness)}%, 0.5)`;
+  
+  document.documentElement.style.setProperty('--time-color', color);
+  
+  const strip = document.querySelector('.time-color-strip');
+  strip.style.backgroundColor = color;
+  strip.style.height = `${(timeOfDay * 100).toFixed(2)}%`;
+  
+  updateStars(timeOfDay);
+}
+
+function createStars() {
+  const strip = document.querySelector('.time-color-strip');
+  for (let i = 0; i < 50; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = `${Math.random() * 100}%`;
+    star.style.top = `${Math.random() * 100}%`;
+    star.style.width = `${Math.random() * 2 + 1}px`;
+    star.style.height = star.style.width;
+    strip.appendChild(star);
+  }
+}
+
+function updateStars(timeOfDay) {
+  const stars = document.querySelectorAll('.star');
+  const visibility = timeOfDay < 0.25 || timeOfDay > 0.75 ? 1 : 
+                     timeOfDay < 0.3 || timeOfDay > 0.7 ? 0.5 : 0;
+  
+  stars.forEach(star => {
+    star.style.opacity = Math.random() * visibility;
+  });
+}
+
+createStars();
+
+setInterval(() => {
+  updateScaleColor();
+}, 1000);
+
+// Initial calls
+updateScaleColor();
+
+function updateScales() {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const seconds = now.getSeconds();
+
+  document.querySelector('.hours').style.setProperty('--current-hour', hours);
+  document.querySelector('.minutes').style.setProperty('--current-minute', minutes);
+  document.querySelector('.seconds-fill').style.height = `${(seconds / 60) * 100}%`;
+}
+
+// Make sure to call updateScales() every second
+setInterval(updateScales, 1000);
+updateScales(); // Initial call
+
+function createScales() {
+  const hourScale = document.getElementById('hourScale');
+  const minuteScale = document.getElementById('minuteScale');
+
+  for (let i = 0; i <= 24; i++) {
+    const mark = document.createElement('div');
+    mark.className = 'scale-mark numbered';
+    mark.style.top = `${(i / 24) * 100}%`; // Changed from bottom to top
+    const text = document.createElement('span');
+    text.className = 'scale-text';
+    text.textContent = i;
+    mark.appendChild(text);
+    hourScale.appendChild(mark);
+  }
+
+  for (let i = 0; i <= 60; i++) {
+    const mark = document.createElement('div');
+    mark.className = 'scale-mark';
+    mark.style.top = `${(i / 60) * 100}%`; // Changed from bottom to top
+    if (i % 5 === 0) {
+      mark.classList.add('numbered');
+      const text = document.createElement('span');
+      text.className = 'scale-text';
+      if (i % 10 === 0) {
+        text.classList.add('ten');
+      }
+      text.textContent = i;
+      mark.appendChild(text);
+    }
+    minuteScale.appendChild(mark);
+  }
+
+  hourScale.addEventListener('click', handleHourClick);
+  minuteScale.addEventListener('dblclick', handleMinuteDoubleClick);
+}
+
+let selectedHour = null;
+
+function handleHourClick(event) {
+  const rect = event.target.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  selectedHour = Math.floor((y / rect.height) * 24);
+}
+
+function handleMinuteDoubleClick(event) {
+  const rect = event.target.getBoundingClientRect();
+  const y = event.clientY - rect.top;
+  const minutes = Math.round((y / rect.height) * 60); // Changed to Math.round for more accurate selection
+  
+  if (selectedHour !== null) {
+    addAlarmTimer(selectedHour, minutes, `Timer set for ${selectedHour}:${minutes.toString().padStart(2, '0')}`, null);
+    selectedHour = null;
+  } else {
+    addCountdownTimer(minutes * 60, `Timer set for ${minutes} minutes`, null);
+  }
+}
+
+createScales();
+setInterval(updateScales, 1000);
+updateScales(); // Initial call
 
 function donateETH() {
   const address = "0x896d8d26417DfeE7a49B75aa68ac40A23E7F5F2c";
